@@ -1,0 +1,198 @@
+<!doctype html>
+<html>
+<head>
+    <title>Zehr-i Chatnot</title>
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&amp;subset=latin-ext" rel="stylesheet">
+    <link href="static/css.css" rel="stylesheet"/>
+    <meta name="viewport" content="width=device-width, height=device-height, user-scalable=no">
+    <meta charset="utf-8">
+
+</head>
+<body>
+
+<div id="layerLogon">
+    <ul id="messages"></ul>
+    <form action="" id="msgSend">
+        <input id="uname" value="misafir">
+        <input id="umsg" autocomplete="off"/>
+        <button id="chatnow">Send</button>
+    </form>
+</div>
+
+<div id="layerLogout">
+    <form action="" id="logonform">
+        <input id="userName" placeholder="Kullanıcı Adı">
+        <input id="userPass" placeholder="Kullanıcı Şifresi" type="password"/>
+        <button id="logon">Giriş</button>
+    </form>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="http://code.jquery.com/jquery-1.11.1.js"></script>
+<script>
+
+    var socket = io.connect();
+    var chatnot = {
+
+        backcolor:'rgba(255,255,255,0.6)',
+        color:'#000',
+
+
+        token:null,
+
+        encCharMap : "qwertyuıopğüasdfghjklşizxcvbnmöç1234567890QWERTYUIOPĞÜASDFGHJKLŞİZXCVBNMÖÇ",
+        decCharMap : "ASDFGHJKLŞİzxcvbnmöçQWERTYUIOPĞÜ6912703548ZXCVBNMÖÇasdfghjklşiqwertyuıopğü",
+
+        showLogin: function () {
+            $('#layerLogout').show();
+        },
+
+        showChat: function (sd) {
+            $('#layerLogout').hide();
+            $('#layerLogon').show();
+            if (sd.token) {
+                localStorage.setItem('chatnotToken', sd.token);
+            }
+            $('#uname').val(sd.user.nick);
+            if(sd.user.backcolor){
+                chatnot.backcolor = sd.user.backcolor;
+            }
+            if(sd.user.color){
+                chatnot.color = sd.user.color;
+            }
+            console.log(sd);
+        },
+
+        dechatter: function(s) {
+            return s.replace(/[A-Za-z0-9ıİÖöçÇüÜğğşŞ]/g, function (c) {
+                return chatnot.encCharMap.charAt(
+                        chatnot.decCharMap.indexOf(c)
+                );
+            } );
+        },
+
+        enchatter: function(s) {
+            return s.replace(/[A-Za-z0-9ıİÖöçÇüÜğğşŞ]/g, function (c) {
+                return chatnot.decCharMap.charAt(
+                        chatnot.encCharMap.indexOf(c)
+                );
+            } );
+        },
+
+        check: function () {
+            chatnot.token = localStorage.getItem('chatnotToken');
+            if (!chatnot.token) {
+                chatnot.showLogin();
+            }
+            else {
+                socket.send({controller: "checkAuth", token: chatnot.token});
+            }
+        },
+
+        run: function () {
+            console.log('%c Chatnot gıybete hazırlanıyor. ', 'background: #222; color: #bada55');
+            chatnot.check();
+        }
+
+    };
+
+    $(function () {
+
+        $('#layerLogon, #layerLogout').hide();
+
+        $('#logonform').submit(function () {
+            socket.send({
+                controller: 'login',
+                username: $('#userName').val(),
+                userpass: $('#userPass').val()
+            });
+
+            return false;
+        });
+
+        $('#msgSend').submit(function () {
+            chatnot.token = localStorage.getItem('chatnotToken');
+            var msg = $('#umsg');
+            if (msg.val()) {
+                socket.emit('Looby', {
+                    token: chatnot.token,
+                    name: $('#uname').val(),
+                    data: $('#umsg').val(),
+                    backcolor: chatnot.backcolor,
+                    color: chatnot.color
+                });
+                msg.val('');
+            }
+
+            return false;
+        });
+
+        $('#uname').change(function(){
+            var nNick = $(this).val();
+            socket.send({
+                controller:'nick',
+                data:nNick,
+                token:chatnot.token
+            });
+        });
+
+        $(document).on
+        (
+                {
+                    mouseenter: function () {
+                        var that = $(this).find('.enChater');
+                        var value = that.text();
+                        that.text(chatnot.dechatter(value));
+                    },
+                    mouseleave: function () {
+                        var that = $(this).find('.enChater');
+                        var value = that.text();
+                        that.text(chatnot.enchatter(value));
+                    }
+                },
+                '#messages li'
+        );
+
+        socket.on('Looby', function (msg) {
+
+            if (msg.status) {
+                console.log(msg);
+
+                $('#messages').append($('<li style="background:'+msg.backcolor+' ; color:'+msg.color+' ; font-size: ' + msg.size + 'px;">').append('<span class="lightNick">' + msg.name + ':</span><span class="enChater">' + jQuery('<d>'+msg.data+'<d>').text()+ '</span>'));
+
+            } else {
+                alert(msg.notice);
+            }
+        });
+        socket.on('message', function (server) {
+
+            switch (server.controller) {
+
+                case "auth":
+                    if (server.status) {
+                        chatnot.showChat(server);
+                    } else {
+                        chatnot.showLogin();
+                    }
+                    break;
+                case "login":
+                    if (!server.status) {
+                        alert(server.notice);
+                    } else {
+                        chatnot.showChat(server);
+                    }
+                    break;
+
+                default :
+            }
+        });
+
+        chatnot.run();
+    });
+
+
+</script>
+
+
+</body>
+</html>

@@ -1,0 +1,88 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-size:13px;
+    font-family: 'Lato', sans-serif;
+
+}
+:focus {
+    outline: 0;
+}
+form {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+}
+
+form input {
+    border: 0;
+    padding: 10px;
+    width: 100%;
+    margin-right: .5%;
+}
+
+form button {
+    background: #1abc9c;
+    border: none;
+    color: #fff;
+    padding: 10px;
+}
+
+#messages {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    margin-bottom: 100px;
+}
+
+#messages li {
+    padding: 5px 10px;
+}
+
+#messages li:nth-child(odd) {
+    background: #eee;
+}
+
+form#logonform {
+    position: absolute;
+    max-width: 300px;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    height: 101px;
+    margin: auto;
+    border: 1px solid #e8e0e0;
+    padding: 0;
+}
+
+form#logonform input, form#logonform button {
+    width: 100%;
+}
+
+html {
+    background: url('ignasi_pattern_s.png');
+}
+
+form#logonform input {
+    border-left: 10px solid #fff;
+}
+form#logonform input:focus {
+    border-left: 10px solid #9b59b6;
+}
+
+button#chatnow {
+    display: none;
+}
+
+input#uname {
+    opacity: 0.5;
+}
+
+span.lightNick {
+    font-weight: 300;
+}
