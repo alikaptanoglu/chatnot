@@ -41,6 +41,7 @@ form button {
 
 #messages li {
     padding: 5px 10px;
+    font-weight: 700;
 }
 
 #messages li:nth-child(odd) {
@@ -84,5 +85,26 @@ input#uname {
 }
 
 span.lightNick {
-    font-weight: 300;
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 10px;
+}
+
+div#onlineBoard {
+    position: absolute;
+    /* background: rgba(255, 255, 255, 0.7); */
+    width: 30px;
+    min-height: 30px;
+    right: 0;
+    top: 0;
+    z-index: 1;
+}
+#onlineBoard>span {
+    display: block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    box-shadow: 0 0 5px rgba(187, 187, 187, 0.82);
+    margin-top: 5px;
 }

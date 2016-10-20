@@ -13,7 +13,7 @@
 <div id="layerLogon">
     <ul id="messages"></ul>
     <form action="" id="msgSend">
-        <input id="uname" value="misafir">
+        <!-- <input id="uname" value="misafir"> -->
         <input id="umsg" autocomplete="off"/>
         <button id="chatnow">Send</button>
     </form>
@@ -27,21 +27,27 @@
     </form>
 </div>
 
+<div id="onlineBoard">
+
+</div>
+
 <script src="/socket.io/socket.io.js"></script>
 <script src="http://code.jquery.com/jquery-1.11.1.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-easing/1.3/jquery.easing.min.js"></script>
+
+
 <script>
 
     var socket = io.connect();
     var chatnot = {
 
-        backcolor:'rgba(255,255,255,0.6)',
-        color:'#000',
+        backcolor: 'rgba(255,255,255,0.6)',
+        color: '#000',
 
 
-        token:null,
+        token: null,
 
-        encCharMap : "qwertyuıopğüasdfghjklşizxcvbnmöç1234567890QWERTYUIOPĞÜASDFGHJKLŞİZXCVBNMÖÇ",
-        decCharMap : "ASDFGHJKLŞİzxcvbnmöçQWERTYUIOPĞÜ6912703548ZXCVBNMÖÇasdfghjklşiqwertyuıopğü",
+        encCharMap: "qwertyuıopğüasdfghjklşizxcvbnmöç1234567890QWERTYUIOPĞÜASDFGHJKLŞİZXCVBNMÖÇ",
 
         showLogin: function () {
             $('#layerLogout').show();
@@ -54,29 +60,46 @@
                 localStorage.setItem('chatnotToken', sd.token);
             }
             $('#uname').val(sd.user.nick);
-            if(sd.user.backcolor){
+            if (sd.user.backcolor) {
                 chatnot.backcolor = sd.user.backcolor;
             }
-            if(sd.user.color){
+            if (sd.user.color) {
                 chatnot.color = sd.user.color;
             }
             console.log(sd);
         },
 
-        dechatter: function(s) {
-            return s.replace(/[A-Za-z0-9ıİÖöçÇüÜğğşŞ]/g, function (c) {
-                return chatnot.encCharMap.charAt(
-                        chatnot.decCharMap.indexOf(c)
-                );
-            } );
+
+        onlineUsers: function (data) {
+
+            var targetDiv = $('#onlineBoard');
+
+
+            var c = data.length;
+            var tmp = "";
+
+            for (var i = 0; i < c; i++) {
+                console.log(i);
+                tmp = tmp + '<span style="background-color:' + data[i].color + '"></span>';
+            }
+            targetDiv.html(tmp);
+
         },
 
-        enchatter: function(s) {
-            return s.replace(/[A-Za-z0-9ıİÖöçÇüÜğğşŞ]/g, function (c) {
-                return chatnot.decCharMap.charAt(
+        dechatter: function (s,deckey) {
+            return s.replace(/[A-Za-z0-9ıİÖöçÇüÜğĞşŞ]/g, function (c) {
+                return chatnot.encCharMap.charAt(
+                        deckey.indexOf(c)
+                );
+            });
+        },
+
+        enchatter: function (s,deckey) {
+            return s.replace(/[A-Za-z0-9ıİÖöçÇüÜğĞşŞ]/g, function (c) {
+                return deckey.charAt(
                         chatnot.encCharMap.indexOf(c)
                 );
-            } );
+            });
         },
 
         check: function () {
@@ -110,6 +133,7 @@
             return false;
         });
 
+
         $('#msgSend').submit(function () {
             chatnot.token = localStorage.getItem('chatnotToken');
             var msg = $('#umsg');
@@ -127,12 +151,12 @@
             return false;
         });
 
-        $('#uname').change(function(){
+        $('#uname').change(function () {
             var nNick = $(this).val();
             socket.send({
-                controller:'nick',
-                data:nNick,
-                token:chatnot.token
+                controller: 'nick',
+                data: nNick,
+                token: chatnot.token
             });
         });
 
@@ -142,12 +166,14 @@
                     mouseenter: function () {
                         var that = $(this).find('.enChater');
                         var value = that.text();
-                        that.text(chatnot.dechatter(value));
+                        var decKey = $(this).data('deckey');
+                        that.text(chatnot.dechatter(value,decKey));
                     },
                     mouseleave: function () {
                         var that = $(this).find('.enChater');
                         var value = that.text();
-                        that.text(chatnot.enchatter(value));
+                        var decKey = $(this).data('deckey');
+                        that.text(chatnot.enchatter(value,decKey));
                     }
                 },
                 '#messages li'
@@ -156,9 +182,16 @@
         socket.on('Looby', function (msg) {
 
             if (msg.status) {
-                console.log(msg);
 
-                $('#messages').append($('<li style="background:'+msg.backcolor+' ; color:'+msg.color+' ; font-size: ' + msg.size + 'px;">').append('<span class="lightNick">' + msg.name + ':</span><span class="enChater">' + jQuery('<d>'+msg.data+'<d>').text()+ '</span>'));
+                $('#messages').append($('<li data-deckey="'+msg.dKey+'">').append('<span class="lightNick" style="background-color:' + msg.color + ' "></span><span class="enChater">' + jQuery('<d>' + msg.data + '<d>').text() + '</span>'));
+
+                if (!chatnot.scrolling) {
+                    chatnot.scrolling = true;
+                    $('html,body').animate({scrollTop: $('#messages>li:last-child').offset().top}, 1500, 'swing');
+                    setTimeout(function () {
+                        chatnot.scrolling = false;
+                    }, 1500);
+                }
 
             } else {
                 alert(msg.notice);
@@ -168,12 +201,19 @@
 
             switch (server.controller) {
 
+                case "haveAuth":
+                        chatnot.check();
+                break;
                 case "auth":
+
                     if (server.status) {
                         chatnot.showChat(server);
                     } else {
                         chatnot.showLogin();
                     }
+                    break;
+                case "online":
+                    chatnot.onlineUsers(server.users);
                     break;
                 case "login":
                     if (!server.status) {
@@ -184,6 +224,8 @@
                     break;
 
                 default :
+
+                    console.log(server);
             }
         });
 

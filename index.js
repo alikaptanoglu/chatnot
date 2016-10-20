@@ -4,6 +4,10 @@ var viewDir = '/views/';
 var allowedUserColmn = 'id,nick,username,token,color,backcolor';
 
 
+var connectedUsers = [];
+var connectedSocket = [];
+
+
 var sqlite3 = require('sqlite3').verbose();
 var db = new sqlite3.Database('zehri.db');
 
@@ -18,7 +22,7 @@ app.get('/', function (req, res) {
     res.sendFile(__dirname + viewDir + 'sys.html');
 });
 
-app.use('/static',express.static('public'));
+app.use('/static', express.static('public'));
 
 
 http.listen(port, function () {
@@ -28,6 +32,21 @@ http.listen(port, function () {
 http.on('error', function (e) {
     console.log('Port kullanımda');
 });
+
+
+
+String.prototype.encrKey = function () {
+    var a = this.split(""),
+        n = a.length;
+
+    for(var i = n - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var tmp = a[i];
+        a[i] = a[j];
+        a[j] = tmp;
+    }
+    return a.join("");
+}
 
 function rand() {
     var list = ['a', 'C', 'X', 'c', 'e', 'F', 'B', 'N', 'm', 'p', 'o', 0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -41,43 +60,121 @@ function generateToken() {
 
 }
 
-function checkToken(socket, token) {
-
-    console.log(socketId);
-
-}
 
 var encCharMap = "qwertyuıopğüasdfghjklşizxcvbnmöç1234567890QWERTYUIOPĞÜASDFGHJKLŞİZXCVBNMÖÇ";
-var decCharMap = "ASDFGHJKLŞİzxcvbnmöçQWERTYUIOPĞÜ6912703548ZXCVBNMÖÇasdfghjklşiqwertyuıopğü";
 
-function enchatter(s) {
-    return s.replace(/[A-Za-z0-9ıİÖöçÇüÜğğşŞ]/g, function (c) {
-        return decCharMap.charAt(
+function enchatter(s,decKey) {
+    return s.replace(/[A-Za-z0-9ıİÖöçÇüÜğĞşŞ]/g, function (c) {
+        return decKey.charAt(
             encCharMap.indexOf(c)
         );
-    } );
+    });
 }
-function dechatter(s) {
-    return s.replace(/[A-Za-z0-9ıİÖöçÇüÜğğşŞ]/g, function (c) {
+function dechatter(s,decKey) {
+    return s.replace(/[A-Za-z0-9ıİÖöçÇüÜğĞşŞ]/g, function (c) {
         return encCharMap.charAt(
-            decCharMap.indexOf(c)
+            decKey.indexOf(c)
         );
-    } );
+    });
 }
 
-function badwordenchaned(s){
+function badwordenchaned(s) {
     return s.replace(/Recep/g, 'RichArt').replace(/recep/g, 'RichArt').replace(/RECEP/g, 'RichArt');
+};
+
+
+var chatnot = {
+
+    check: {
+        online: function () {
+
+            var oldOnline = chatnot.user.online;
+            var oldC = oldOnline.length;
+
+            var activeSocket = chatnot.sockets;
+            var activeC = activeSocket.length;
+
+            var newOnline = [];
+
+            for (var i = 0; activeC > i; i++) {
+
+                var nC = newOnline.length;
+                var nEl = 0;
+                for (var ni = 0; nC > ni; ni++) {
+
+                    if (activeSocket[i].token == newOnline[ni].token) {
+                        nEl++;
+                    }
+
+                }
+                if (nEl == 0) {
+                    newOnline.push(activeSocket[i])
+                }
+
+            }
+            var newC = newOnline.length;
+
+            if (oldC != newC) {
+                chatnot.user.online = newOnline;
+                io.send({ controller: "online", users: newOnline });
+                console.log('///online changed///');
+                console.log(newOnline);
+            }
+
+        }
+    },
+    sockets: [],
+    user: {
+        online: [],
+        getColor: function(token){
+            var ou = chatnot.user.online;
+            var c = ou.length;
+
+            for(var i = 0; c>i; i++){
+                if(token==ou[i].token){
+                    return ou[i].color;
+                }
+            }
+            return '#f00';
+
+        },
+        connect: function (socketId, token, color) {
+            chatnot.sockets.push({socketId: socketId, token: token, color: color});
+            chatnot.check.online();
+        },
+        disconnect: function (socketId) {
+            var c = chatnot.sockets.length;
+            if (socketId) {
+                for (var i = 0; c > i; i++) {
+                    try {
+                        if (socketId == chatnot.sockets[i].socketId) {
+                           console.log('?//', chatnot.sockets.splice(i, 1) ); //diziden def et
+                        }
+                    }
+                    catch (e) {
+                        console.log(socketId + " droplanamadı");
+                    }
+
+                }
+            }
+            chatnot.check.online();
+        }
+
+    }
 };
 
 
 io.on('connection', function (socket) {
     // user bağlandı
     tConnected++;
-    console.log('+++ Login:' + socket.id);
+    console.log('+++ connect:' + socket.id);
+    io.sockets.connected[socket.id].send({controller:'haveAuth'});
+
     socket.on('disconnect', function (e) {
         //user koptu gitti
-        console.log('--- Logout:' + socket.id);
+        console.log('--- disconnect:' + socket.id);
         tConnected--;
+        chatnot.user.disconnect(socket.id);
     });
 
     socket.on('Looby', function (msg) {
@@ -85,28 +182,23 @@ io.on('connection', function (socket) {
         //auth check
         var query = "select * from users where token='" + msg.token + "'";
         var size = 13;
-        if(msg.data.length<60){
-            size = 21;
-        }
-        if(msg.data.length<40){
-            size = 26;
-        }
-        if(msg.data.length<20){
-            size = 33;
-        }
+
+        var decriptKey = encCharMap.encrKey();
+
         db.get(query, function (err, rows) {
             if (rows) {
                 io.emit('Looby', {
                     status: true,
-                    size:size,
-                    color:msg.color,
-                    backcolor:msg.backcolor,
+                    size: size,
+                    color: chatnot.user.getColor(msg.token),
+                    backcolor: msg.backcolor,
                     name: msg.name,
-                    data: enchatter(badwordenchaned(msg.data))
+                    dKey:decriptKey,
+                    data: enchatter(badwordenchaned(msg.data),decriptKey)
                 });
             }
             else {
-                io.emit('Looby', {
+                io.sockets.connected[socket.id].emit('Looby', {
                     status: false,
                     notice: 'Access Token Geçersiz'
                 });
@@ -135,16 +227,17 @@ io.on('connection', function (socket) {
             case "nick":
 
                 jsonReturn.controller = 'nick';
-                query = 'update users set nick="'+client.data+'" where token="' + client.token + '"';
+                query = 'update users set nick="' + client.data + '" where token="' + client.token + '"';
                 db.run(query);
-                console.log('//nick~:'+socket.id);
+                console.log('//nick~:' + socket.id);
 
-            break;
+                break;
 
             case "checkAuth":
 
                 jsonReturn.controller = 'auth';
                 query = 'select ' + allowedUserColmn + ' from users where token="' + client.token + '"';
+
 
                 db.get(query, function (err, rows) {
                     if (rows) {
@@ -154,6 +247,10 @@ io.on('connection', function (socket) {
                         jsonReturn.user = rows;
                         io.sockets.connected[socket.id].emit('message', jsonReturn);
 
+                        chatnot.user.connect(socket.id, client.token, rows.backcolor);
+
+                        chatnot.check.online();
+
                     } else {
 
                         io.sockets.connected[socket.id].emit('message', jsonReturn);
@@ -162,6 +259,10 @@ io.on('connection', function (socket) {
                 });
 
 
+                break;
+
+            case "online":
+                console.log(connectedUsers);
                 break;
             case "login":
 
@@ -190,6 +291,7 @@ io.on('connection', function (socket) {
                         jsonReturn.status = true;
                         io.sockets.connected[socket.id].emit('message', jsonReturn);
                         console.log('*** Authed:' + socket.id);
+                        chatnot.user.connect(socket.id, client.token, rows.color);
 
                     }
                     else {
